@@ -1,0 +1,889 @@
+إدارة الأصناف (Categories)
+- شاشة الصلاحيات: `Categories`
+- جميع المسارات تتطلب `authMiddleware` وتمر عبر `checkPermission('Categories', '<action>')`
+
+1) إضافة صنف
+- الطريقة: `POST`
+- المسار: `/categories`
+- البيانات المرسلة (JSON أو form-data):
+  - `name` (إجباري): اسم الصنف
+  - `type` (اختياري): أحد القيم `snack_full|snack|salads|garnish`، الافتراضي `snack_full`
+- أمثلة طلب:
+  - JSON:
+    ```json
+    { "name": "مقبلات"، "type": "snack" }
+    ```
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم إنشاء الصنف بنجاح",
+    "data": {
+      "id": 3,
+      "name": "مقبلات",
+      "type": "snack",
+      "status": "active",
+      "createdAt": "2025-12-25T12:05:00.000Z",
+      "updatedAt": "2025-12-25T12:05:00.000Z"
+    }
+  }
+  ```
+
+2) تعديل صنف
+- الطريقة: `PUT`
+- المسار: `/categories/:id`
+- البيانات المرسلة (JSON):
+  - `name` (اختياري)
+  - `type` (اختياري): `snack_full|snack|salads|garnish`
+  - `status` (اختياري): `active|delete`
+- مثال طلب:
+  ```json
+  { "name": "مقبلات باردة", "type": "salads" }
+  ```
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم تحديث الصنف بنجاح",
+    "data": {
+      "id": 3,
+      "name": "مقبلات باردة",
+      "type": "salads",
+      "status": "active",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+  ```
+
+3) حذف صنف (حذف ناعم)
+- الطريقة: `DELETE`
+- المسار: `/categories/:id`
+- لا يوجد جسم للطلب
+- السلوك: تعديل الحالة إلى `delete`
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم حذف الصنف بنجاح",
+    "data": {
+      "id": 3,
+      "name": "مقبلات باردة",
+      "type": "salads",
+      "status": "delete",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+  ```
+
+4) قائمة الأصناف مع البحث والفلترة
+- الطريقة: `GET`
+- المسار: `/categories?q=&type=&status=active|delete|all&page=1&limit=10`
+- المعاملات:
+  - `q` (اختياري): بحث بالاسم
+  - `type` (اختياري): `snack_full|snack|salads|garnish`
+  - `status` (اختياري): الافتراضي `active`
+  - `page`, `limit` (اختياريان)
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم جلب الأصناف بنجاح",
+    "data": {
+      "rows": [
+        { "id": 1, "name": "تزيين", "type": "garnish", "status": "active", "createdAt": "...", "updatedAt": "..." }
+      ],
+      "count": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    }
+  }
+  ```
+
+5) معاينة صنف
+- الطريقة: `GET`
+- المسار: `/categories/:id`
+- السلوك: إذا كان الصنف محذوفًا (`status = delete`) يرجع خطأ "الصنف غير موجود"
+- مثال استجابة ناجحة:
+  ```json
+  {
+    "success": true,
+    "message": "تم جلب بيانات الصنف بنجاح",
+    "data": {
+      "id": 4,
+      "name": "سلطات",
+      "type": "salads",
+      "status": "active",
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  }
+  ```
+
+6) قائمة أصناف السناك والسلطات (بدون التزيين)
+- الطريقة: `GET`
+- المسار: `/categories/snacks?q=&status=active|delete|all&page=1&limit=10`
+- السلوك:
+  - يعيد فقط الأصناف ذات النوع: `snack_full|snack|salads`
+  - يستثني التزيين (`garnish`) تلقائيًا
+- مثال استجابة:
+```json
+{
+  "success": true,
+  "message": "تم جلب أصناف السناك والسلطات بنجاح",
+  "data": {
+    "rows": [
+      { "id": 3, "name": "سناك", "type": "snack", "status": "active", "createdAt": "...", "updatedAt": "..." },
+      { "id": 5, "name": "سلطة سيزر", "type": "salads", "status": "active" }
+    ],
+    "count": 2,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
+}
+```
+
+إدارة الوجبات (Meals) — بعد التعديل
+- شاشة الصلاحيات: `Meals`
+- جميع المسارات تتطلب `authMiddleware` وتمر عبر `checkPermission('Meals', '<action>')`
+- الحقول الرئيسية:
+  - `name` (إجباري)
+  - `image` (إجباري): إمّا عبر رفع ملف (`photo` أو `file` في `multipart/form-data`) أو تمرير مسار جاهز بالحقل `image`
+  - `meal_type` (اختياري): `breakfast|lunch|dinner`؛ الافتراضي `lunch`
+  - `garnish_category_id` (اختياري): رقم تصنيف التزيين؛ يجب أن يكون التصنيف فعّالًا ونوعه `garnish`، ويمكن أن يكون `null`
+  - `description` (اختياري)
+
+1) إضافة وجبة
+- الطريقة: `POST`
+- المسار: `/meals`
+- البيانات المرسلة:
+  - `multipart/form-data`: ملف صورة تحت المفتاح `photo` أو `file`، إضافة إلى الحقول النصية (`name`, `meal_type`, `garnish_category_id`, `description`)
+  - أو `application/json` مع `image` يحوي مسار الصورة
+- أمثلة طلب:
+  - رفع ملف:
+    - الحقول: `name=صدر دجاج`, `meal_type=lunch`, `garnish_category_id=4`, `description=وجبة بروتينية`, والملف تحت `photo`
+  - JSON:
+    ```json
+    {
+      "name": "صدر دجاج",
+      "image": "uploads/meals/sample1.png",
+      "meal_type": "lunch",
+      "garnish_category_id": 4,
+      "description": "وجبة بروتينية"
+    }
+    ```
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم إنشاء الوجبة بنجاح",
+    "data": {
+      "meal": {
+        "id": 10,
+        "name": "صدر دجاج",
+        "image": "http://localhost:3000/uploads/meals/sample1.png",
+        "description": "وجبة بروتينية",
+        "meal_type": "lunch",
+        "garnish_category_id": 4,
+        "state": 0,
+        "created_by": 1,
+        "createdAt": "...",
+        "updatedAt": "..."
+      }
+    }
+  }
+  ```
+
+2) تعديل وجبة
+- الطريقة: `PUT`
+- المسار: `/meals/:id`
+- البيانات المرسلة:
+  - أي من الحقول: `name`, `meal_type`, `garnish_category_id`, `description`, `image`
+  - ويمكن رفع صورة جديدة عبر `photo` أو `file`
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم تحديث الوجبة بنجاح",
+    "data": {
+      "meal": {
+        "id": 10,
+        "name": "صدر دجاج مشوي",
+        "image": "http://localhost:3000/uploads/meals/new.png",
+        "description": "وجبة بروتينية",
+        "meal_type": "dinner",
+        "garnish_category_id": null,
+        "state": 0,
+        "created_by": 1,
+        "createdAt": "...",
+        "updatedAt": "..."
+      }
+    }
+  }
+  ```
+
+3) حذف وجبة (حذف ناعم)
+- الطريقة: `DELETE`
+- المسار: `/meals/:id`
+- السلوك: تعديل `state` إلى `1`
+- مثال استجابة:
+  ```json
+  { "success": true, "message": "", "data": {} }
+  ```
+
+4) قائمة الوجبات مع البحث والفلترة
+- الطريقة: `GET`
+- المسار: `/meals?q=&type=breakfast|lunch|dinner&page=1&limit=10`
+- المعاملات:
+  - `q` (اختياري): بحث بالاسم
+  - `type` (اختياري): فلترة حسب نوع الوجبة
+  - `page`, `limit` (اختياريان)
+- هيكل الاستجابة:
+  - `rows`: كل عنصر على شكل `{ "meal": { ... } }`
+  - كل `meal` يحتوي العلاقات:
+    - `garnish_category` (إن وُجد): بيانات تصنيف التزيين المرتبط
+    - `creator`: بيانات المستخدم المنشئ مع فرعه `creator.branch`
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم جلب الوجبات بنجاح",
+    "data": {
+      "rows": [
+        {
+          "meal": {
+            "id": 10,
+            "name": "صدر دجاج",
+            "image": "http://localhost:3000/uploads/meals/sample1.png",
+            "description": "وجبة بروتينية",
+            "meal_type": "lunch",
+            "garnish_category_id": 4,
+            "state": 0,
+            "created_by": 1,
+            "createdAt": "...",
+            "updatedAt": "...",
+            "garnish_category": { "id": 4, "name": "تزيين", "type": "garnish", "status": "active", "createdAt": "...", "updatedAt": "..." },
+            "creator": {
+              "id": 1,
+              "full_name": "المشرف",
+              "branch": { "id": 1, "name": "الفرع الرئيسي", "address": "الطائف", "phone": "0500000000", "status": "active" }
+            }
+          }
+        }
+      ],
+      "count": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    }
+  }
+  ```
+
+5) معاينة وجبة
+- الطريقة: `GET`
+- المسار: `/meals/:id`
+- الاستجابة:
+  - كائن واحد `{ "meal": { ... } }` مع نفس العلاقات المذكورة أعلاه
+- مثال:
+  ```json
+  {
+    "success": true,
+    "message": "تم جلب بيانات الوجبة بنجاح",
+    "data": {
+      "meal": {
+        "id": 10,
+        "name": "صدر دجاج",
+        "image": "http://localhost:3000/uploads/meals/sample1.png",
+        "description": "وجبة بروتينية",
+        "meal_type": "lunch",
+        "garnish_category_id": 4,
+        "state": 0,
+        "created_by": 1,
+        "createdAt": "...",
+        "updatedAt": "...",
+        "garnish_category": { "id": 4, "name": "تزيين", "type": "garnish", "status": "active" },
+        "creator": {
+          "id": 1,
+          "full_name": "المشرف",
+          "branch": { "id": 1, "name": "الفرع الرئيسي" }
+        }
+      }
+    }
+  }
+  ```
+
+إدارة الباقات (Plans) — بعد التعديل
+- شاشة الصلاحيات: `Plans`
+- جميع المسارات تتطلب `authMiddleware` وتمر عبر `checkPermission('Plans', '<action>')`
+
+1) إضافة باقة
+- الطريقة: `POST`
+- المسار: `/plans`
+- البيانات المرسلة:
+  - حقول الباقة (إجباري إلا ما يُذكر):
+    - `name` (إجباري): اسم الباقة
+    - `price` (إجباري): سعر الباقة (رقمي موجب)
+    - `duration_days` (إجباري): عدد أيام الباقة (صحيح موجب)
+    - `protein_quantity` (إجباري): كمية البروتين الكلية في الباقة (رقمي غير سالب)
+    - `carbs_quantity` (إجباري): كمية الكربوهيدرات الكلية في الباقة (رقمي غير سالب)
+    - `total_meals_count` (إجباري): العدد الإجمالي للوجبات في الباقة (صحيح موجب)
+    - `type` (اختياري): `normal|custom`، الافتراضي `normal`
+    - `status` (اختياري): `active|inactive|deleted`، الافتراضي `active`
+    - `description` (اختياري)
+    - `image` (إجباري): إمّا مسار صورة، أو رفع ملف عبر `photo|file` (multipart/form-data)
+  - `meal_types` (إجباري): مصفوفة أنواع الوجبات مع العدد لكل نوع، يجب أن يساوي مجموعها `total_meals_count`
+    - شكل العنصر: `{ "type": "breakfast|lunch|dinner", "count": <عدد صحيح غير سالب> }`
+  - `meals` (إجباري): مصفوفة تفاصيل الوجبات ضمن الباقة
+    - لكل عنصر:
+      - `meal_id` (إجباري): رقم الوجبة
+      - ملاحظة: `protein_quantity` و`carbs_quantity` لكل وجبة تُضبط تلقائيًا مساوية لقيم الباقة؛ لا تُرسل من العميل
+      - إذا `type = normal`: `workday_id` (إجباري) ويجب أن يكون اليوم نشطًا
+      - إذا `type = custom`: `allowed_meals_count` (إجباري) عدد الوجبات المسموح بها لهذه الوجبة (صحيح موجب)
+- أمثلة طلب:
+  - JSON:
+    ```json
+    {
+      "name": "باقة شهرية",
+      "price": 2000,
+      "duration_days": 30,
+      "protein_quantity": 5000,
+      "carbs_quantity": 8000,
+      "total_meals_count": 60,
+      "type": "custom",
+      "meal_types": [
+        { "type": "breakfast", "count": 20 },
+        { "type": "lunch", "count": 20 },
+        { "type": "dinner", "count": 20 }
+      ],
+      "meals": [
+        { "meal_id": 4, "allowed_meals_count": 10 },
+        { "meal_id": 5, "allowed_meals_count": 15 }
+      ]
+    }
+    ```
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم إنشاء الباقة بنجاح",
+    "data": {
+      "id": 7,
+      "name": "باقة شهرية",
+      "image": "http://localhost:3000/uploads/plans/....png",
+      "price": "2000.00",
+      "duration_days": 30,
+      "description": null,
+      "type": "custom",
+      "status": "active",
+      "protein_quantity": "5000.00",
+      "carbs_quantity": "8000.00",
+      "total_meals_count": 60,
+      "breakfasts_count": 20,
+      "lunches_count": 20,
+      "dinners_count": 20,
+      "created_by": 1,
+      "createdAt": "...",
+      "updatedAt": "...",
+      "plan_meals": [
+        {
+          "plan_id": 7,
+          "workday_id": null,
+          "meal_id": 4,
+          "protein_quantity": "30.00",
+          "carbs_quantity": "0.00",
+          "allowed_meals_count": 10,
+          "description": null,
+          "createdAt": "...",
+          "updatedAt": "...",
+          "meal": { "id": 4, "name": "صدر دجاج", "image": "http://...", "state": 0 },
+          "workday": null
+        }
+      ]
+    }
+  }
+  ```
+
+2) حذف باقة (حذف ناعم)
+- الطريقة: `DELETE`
+- المسار: `/plans/:id`
+- السلوك: تعديل الحالة إلى `deleted`
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "Plan deleted",
+    "data": {
+      "id": 7,
+      "status": "deleted"
+    }
+  }
+  ```
+
+3) قائمة الباقات مع البحث والفلترة
+- الطريقة: `GET`
+- المسار: `/plans?q=&status=active|inactive|all&type=normal|custom|all&price_min=&price_max=&page=1&limit=10`
+- المعاملات:
+  - `q` (اختياري): بحث بالاسم
+  - `status` (اختياري): `active|inactive|all`، الافتراضي إرجاع الفعالة وغير الفعالة
+  - `type` (اختياري): `normal|custom|all`
+  - `price_min`, `price_max` (اختياريان): فلترة بالنطاق السعري
+  - `page`, `limit` (اختياريان)
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم جلب الباقات بنجاح",
+    "data": {
+      "rows": [
+        {
+          "id": 7,
+          "name": "باقة شهرية",
+          "image": "http://.../uploads/plans/....png",
+          "price": "2000.00",
+          "duration_days": 30,
+          "description": null,
+          "type": "custom",
+          "status": "active",
+          "protein_quantity": "5000.00",
+          "carbs_quantity": "8000.00",
+          "total_meals_count": 60,
+          "breakfasts_count": 20,
+          "lunches_count": 20,
+          "dinners_count": 20,
+          "plan_meals": [
+            {
+              "meal_id": 4,
+              "protein_quantity": "30.00",
+              "carbs_quantity": "0.00",
+              "allowed_meals_count": 10,
+              "meal": { "id": 4, "name": "صدر دجاج", "image": "http://..." },
+              "workday": null
+            }
+          ]
+        }
+      ],
+      "count": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    }
+  }
+  ```
+
+4) معاينة باقة
+- الطريقة: `GET`
+- المسار: `/plans/:id`
+- مثال استجابة:
+  ```json
+  {
+    "success": true,
+    "message": "تم جلب بيانات الباقة بنجاح",
+    "data": {
+      "id": 7,
+      "name": "باقة شهرية",
+      "image": "http://.../uploads/plans/....png",
+      "price": "2000.00",
+      "duration_days": 30,
+      "description": null,
+      "type": "custom",
+      "status": "active",
+      "protein_quantity": "5000.00",
+      "carbs_quantity": "8000.00",
+      "total_meals_count": 60,
+      "breakfasts_count": 20,
+      "lunches_count": 20,
+      "dinners_count": 20,
+      "plan_meals": [
+        {
+          "meal_id": 4,
+          "protein_quantity": "30.00",
+          "carbs_quantity": "0.00",
+          "allowed_meals_count": 10,
+          "meal": { "id": 4, "name": "صدر دجاج", "image": "http://..." },
+          "workday": null
+        }
+      ]
+    }
+  }
+  ```
+
+5) تفعيل/إيقاف باقة
+- الطريقة: `PATCH`
+- المسارات:
+  - تفعيل: `/plans/:id/activate` — رسالة: "تم تفعيل الباقة"
+  - إيقاف: `/plans/:id/deactivate` — رسالة: "تم إيقاف الباقة"
+
+إدارة المشتركين (Subscribers)
+- شاشة الصلاحيات: `Subscribers`
+- جميع المسارات تتطلب `authMiddleware` وتمر عبر `checkPermission('Subscribers', '<action>')`
+
+1) إضافة مشترك مع اشتراك
+- الطريقة: `POST`
+- المسار: `/subscribers`
+- البيانات المرسلة:
+  - حقول المشترك:
+    - `full_name` (إجباري)
+    - `phone` (إجباري) بصيغة تبدأ بـ `05` ثم 8 أرقام
+    - `photo|file` (اختياري) ملف صورة عبر `multipart/form-data`
+  - `subscription` (إجباري) كائن اشتراك:
+    - `plan_id` (إجباري)
+    - `amount_paid` (اختياري)
+    - `type` (اختياري): `pickup|delivery|custom`، الافتراضي `pickup`
+    - `delivery_branch_id` (إجباري لـ `pickup`)
+    - `delivery_fee` (إجباري لـ `delivery`, رقم غير سالب)
+    - `customizations` (اختياري):
+      - عناصر: `{ prev_meal_id, new_meal_id, allowed_meals_count? }`
+      - إذا `type = custom`: إن لم تُرسل `allowed_meals_count`، تُضبط تلقائيًا مساوية لقيمة الوجبة السابقة في نفس الباقة
+    - `addons` (اختياري):
+      - عناصر: `{ category_id, price }` مع تحقق أن الصنف `active`
+  - ملاحظة: `branch_id` لا يُرسل؛ يؤخذ تلقائيًا من منفّذ الطلب
+- مثال طلب:
+```json
+{
+  "full_name": "عبدالجبار هيوب",
+  "phone": "0501678331",
+  "subscription": {
+    "plan_id": 1,
+    "amount_paid": 1200,
+    "type": "custom",
+    "delivery_branch_id": 2,
+    "customizations": [
+      { "prev_meal_id": 4, "new_meal_id": 5, "allowed_meals_count": 12 },
+      { "prev_meal_id": 2, "new_meal_id": 3 }
+    ],
+    "addons": [
+      { "category_id": 3, "price": 15.0 }
+    ]
+  }
+}
+```
+- مثال استجابة:
+```json
+{
+  "success": true,
+  "message": "تم إنشاء المشترك والاشتراك بنجاح",
+  "data": {
+    "subscriber": { "id": 5, "full_name": "عبدالجبار هيوب", "phone": "0501678331", "branch_id": 1, "photo": "http://.../uploads/subscribers/xxx.jpg" },
+    "subscription": { "id": 10, "type": "custom", "status": "ongoing", "start_date": "2025-12-25", "end_date": "2026-01-22", "delivery_fee": "0.00" },
+    "plan": { "id": 1, "name": "باقة 150 جرام", "plan_meals": [ { "meal_id": 2, "name": "صدر دجاج", "allowed_meals_count": 15 } ] }
+  }
+}
+```
+
+2) تعديل مشترك
+- الطريقة: `PUT`
+- المسار: `/subscribers/:id`
+- البيانات المرسلة:
+  - للمشترك: `full_name` (اختياري), `phone` (اختياري), `photo|file` (اختياري)
+  - ملاحظة: لا يمكن تعديل فرع الاستلام هنا؛ تعديل فرع الاستلام يتم عبر مسار تعديل الاشتراك أدناه
+- مثال استجابة:
+```json
+{ "success": true, "message": "تم تعديل بيانات المشترك بنجاح", "data": { "subscriber": { ... }, "subscription": { ... }, "plan": { ... } } }
+```
+
+3) قائمة المشتركين مع اشتراكاتهم
+- الطريقة: `GET`
+- المسار: `/subscribers?q=&branch_id=&status=ongoing|ended|paused|archived|all&type=pickup|delivery|custom&from=&to=&page=1&limit=10`
+- الشكل:
+  - `rows`: عناصر `{ "subscriber": { ... , "subscriptions": [ { "subscription": { ... , "is_current": true, "remaining_days": 10, "plan": { ... } }, "addons": [ ... ] } ] } }`
+- مثال استجابة:
+```json
+{
+  "success": true,
+  "message": "تم جلب المشتركين مع اشتراكاتهم بنجاح",
+  "data": { "rows": [ { "subscriber": { "id": 5, "full_name": "..." , "subscriptions": [ { "subscription": { "id": 10, "is_current": true, "remaining_days": 28, "plan": { ... } }, "addons": [] } ] } } ], "count": 1, "page": 1, "limit": 10, "totalPages": 1 }
+}
+```
+
+4) معاينة مشترك
+- الطريقة: `GET`
+- المسار: `/subscribers/:id/preview`
+- الشكل:
+  - يعيد `{ subscriber, current_subscription, plan, remaining_days }`
+- مثال:
+```json
+{ "success": true, "message": "Preview fetched", "data": { "subscriber": { ... }, "current_subscription": { ... }, "plan": { ... }, "remaining_days": 20 } }
+```
+
+إدارة الاشتراكات (Subscriptions)
+- شاشة الصلاحيات: `Subscribers`
+- جميع المسارات تتطلب `authMiddleware` وتمر عبر `checkPermission('Subscribers', '<action>')`
+
+1) قائمة الاشتراكات
+- الطريقة: `GET`
+- المسار: `/subscriptions?q=&branch_id=&status=ongoing|ended|paused|archived|all&type=pickup|delivery|custom&from=&to=&page=1&limit=10`
+- الشكل:
+  - `rows`: عناصر `{ "subscription": { ... , "subscriber": { ... }, "is_current": true, "remaining_days": 12, "plan": { ... }, "addons": [ ... ] } }`
+- مثال استجابة:
+```json
+{ "success": true, "message": "تم جلب الاشتراكات بنجاح", "data": { "rows": [ { "subscription": { "id": 5, "type": "custom", "is_current": true, "plan": { ... }, "addons": [] } } ] } }
+```
+
+2) معاينة اشتراك
+- الطريقة: `GET`
+- المسار: `/subscriptions/:id/preview`
+- الشكل:
+  - يعيد `{ "subscription": { ... , "subscriber": { ... }, "is_current": true, "remaining_days": 15, "plan": { ... }, "addons": [ ... ] } }`
+- مثال:
+```json
+{ "success": true, "message": "تم جلب معاينة الاشتراك بنجاح", "data": { "subscription": { "id": 5, "type": "custom", "is_current": true, "plan": { ... }, "addons": [] } } }
+```
+
+3) تجديد اشتراك
+- الطريقة: `POST`
+- المسار: `/subscribers/:id/renew`
+- البيانات المرسلة:
+  - `subscription` (إجباري): نفس هيكل الاشتراك في إضافة المشترك (`plan_id`, `amount_paid`, `type`, `delivery_branch_id|delivery_fee`, `customizations`, `addons`)
+  - الملاحظات:
+    - إذا لدى المشترك اشتراك غير منتهٍ (`ongoing|paused`) يُنشأ الجديد كـ `archived`
+    - إذا لدى المشترك اشتراك مؤرشف مسبقًا: يرجع خطأ
+    - إذا لا يوجد اشتراك غير منتهٍ ولا مؤرشف: يُنشأ مباشرة كـ `ongoing`
+- توضيح:
+  - عند النوع `delivery` يجب إرسال `delivery_fee` (رقم غير سالب)
+  - عند النوع `pickup` يجب إرسال `delivery_branch_id`
+  - لا ترسل `branch_id`؛ يتم استخراجه تلقائيًا من المستخدم الذي نفّذ الطلب
+- أمثلة طلب:
+```json
+// تجديد اشتراك نوع "pickup" (استلام) مع تخصيصات وإضافات
+{
+  "subscription": {
+    "plan_id": 7,
+    "amount_paid": 1000,
+    "type": "pickup",
+    "delivery_branch_id": 4,
+    "customizations": [
+      { "prev_meal_id": 4, "new_meal_id": 5, "allowed_meals_count": 12 },
+      { "prev_meal_id": 2, "new_meal_id": 3 }
+    ],
+    "addons": [
+      { "category_id": 3, "price": 15.00 }
+    ]
+  }
+}
+```
+```json
+// تجديد اشتراك نوع "delivery" (توصيل) مع تخصيصات وإضافات
+{
+  "subscription": {
+    "plan_id": 7,
+    "amount_paid": 1000,
+    "type": "delivery",
+    "delivery_fee": 25,
+    "customizations": [
+      { "prev_meal_id": 4, "new_meal_id": 5 },
+      { "prev_meal_id": 2, "new_meal_id": 3, "allowed_meals_count": 10 }
+    ],
+    "addons": [
+      { "category_id": 3, "price": 15.00 }
+    ]
+  }
+}
+```
+- مثال استجابة:
+```json
+{ "success": true, "message": "تم تجديد الاشتراك بنجاح", "data": { "subscriber": { ... }, "subscription": { ... }, "plan": { ... } } }
+```
+
+4) إيقاف طارئ/استئناف
+- الطريقة: `PATCH`
+- المسارات:
+  - إيقاف طارئ: `/subscriptions/:id/emergency-pause` — يتطلب `checkEmergencyPausePermission()`
+  - استئناف: `/subscriptions/:id/resume` — يتطلب `checkEmergencyPausePermission()`
+- أمثلة:
+```json
+// إيقاف طارئ لا يرسل جسم للطلب
+PATCH /subscriptions/5/emergency-pause
+```
+```json
+{ "success": true, "message": "Subscription paused", "data": { "id": 5, "status": "paused" } }
+```
+```json
+// استئناف لا يرسل جسم للطلب
+PATCH /subscriptions/5/resume
+```
+```json
+{ "success": true, "message": "Subscription resumed", "data": { "id": 5, "status": "ongoing" } }
+```
+
+5) إيقاف عادي (جدولة)
+- الطريقة: `PATCH`
+- المسار: `/subscriptions/:id/normal-pause`
+- البيانات:
+  - `start_date` (إجباري), `pause_days` (إجباري)
+- القيود:
+  - تاريخ البداية من اليوم الذي يلي اليوم التالي وما بعده
+  - يمنع إذا وجد إيقاف طارئ قائم أو إيقاف غير منتهٍ
+  - لا يتجاوز مجموع أيام الإيقاف العادية حد `max_pause_days`
+- مثال طلب:
+```json
+{ "start_date": "2025-12-29", "pause_days": 5 }
+```
+- الاستجابة:
+```json
+{ "success": true, "message": "تم جدولة الإيقاف العادي بنجاح", "data": { "subscription": { ... } } }
+```
+- المِجدول:
+  - يبدأ الإيقاف تلقائيًا في `pause_date`
+  - يستأنف تلقائيًا في `resume_date` ويزيد `end_date`
+
+6) تسليم وجبات اشتراك
+- الطريقة: `POST`
+- المسار: `/subscription-deliveries`
+- البيانات:
+  - `subscription_id` (إجباري), `items`: [{ "meal_id": <رقم>, "quantity": <عدد> }]
+- القيود:
+  - اشتراك `custom`, حالة `ongoing`, وتاريخ نهاية بعد اليوم
+  - فحص الحد اليومي: مجموع المسحوب اليوم + مجموع الطلب ≤ `max_daily_meal_withdrawal`
+  - فحص حد الوجبة لكل وجبة: (المسحوب سابقًا + مجموع الطلب) ≤ `allowed_meals_count`
+- أمثلة:
+```json
+{ "subscription_id": 5, "items": [ { "meal_id": 2, "quantity": 3 }, { "meal_id": 2, "quantity": 2 }, { "meal_id": 1, "quantity": 1 } ] }
+```
+- استجابة نجاح:
+```json
+{ "success": true, "message": "تم توثيق التسليم بنجاح", "data": { "documented": true } }
+```
+- تجاوز يومي:
+```json
+{ "success": false, "message": "تم تجاوز الحد اليومي", "data": { "limit_exceeded": true, "max_daily": 3, "requested_sum": 5, "delivered_today": 2, "today_deliveries": [ ... ] } }
+```
+
+7) قائمة تسليمات اشتراك
+- الطريقة: `GET`
+- المسار: `/subscriptions/:id/deliveries?page=1&limit=10`
+- الشكل:
+  - `rows`: `{ "delivery": { "id": ..., "subscription": { "is_current": true, "remaining_days": 10, "plan": { ... } }, "branch": { ... }, "details": [ { "meal": { ... }, "quantity": ... } ] } }`
+- مثال استجابة مختصرة:
+```json
+{
+  "success": true,
+  "message": "تم جلب تسليمات الاشتراك بنجاح",
+  "data": {
+    "rows": [
+      {
+        "delivery": {
+          "id": 12,
+          "subscription": { "id": 5, "is_current": true, "remaining_days": 28, "plan": { "id": 7, "name": "باقة شهرية", "plan_meals": [ { "meal_id": 4, "allowed_meals_count": 10 } ] } },
+          "branch": { "id": 1, "name": "الفرع الرئيسي" },
+          "details": [ { "meal": { "id": 4, "name": "صدر دجاج" }, "quantity": 2 } ]
+        }
+      }
+    ],
+    "count": 1, "page": 1, "limit": 10, "totalPages": 1
+  }
+}
+```
+
+8) إعدادات الاشتراك
+- `GET /subscription-settings` — يعيد الإعدادات الحالية (`max_daily_meal_withdrawal`, `max_pause_days`)
+- `PUT /subscription-settings` — يعدل `max_daily_meal_withdrawal`
+- أمثلة:
+```json
+GET /subscription-settings
+```
+```json
+{ "success": true, "message": "Subscription settings fetched", "data": { "max_daily_meal_withdrawal": 3, "max_pause_days": 7 } }
+```
+```json
+PUT /subscription-settings
+Body: { "max_daily_meal_withdrawal": 4 }
+```
+```json
+{ "success": true, "message": "Subscription settings updated", "data": { "max_daily_meal_withdrawal": 4, "max_pause_days": 7 } }
+```
+
+9) تعديل فرع الاستلام للاشتراك
+- الطريقة: `PUT`
+- المسار: `/subscriptions/:id`
+- البيانات المرسلة:
+  - `delivery_branch_id` (إجباري)
+- القيود:
+  - يسمح فقط إذا كان نوع الاشتراك `pickup`
+  - يجب أن يكون الفرع موجودًا وفعّالًا
+- مثال طلب:
+```json
+{ "delivery_branch_id": 4 }
+```
+- مثال استجابة:
+```json
+{ "success": true, "message": "تم تعديل فرع الاستلام للاشتراك بنجاح", "data": { "id": 5, "delivery_branch_id": 4, "type": "pickup", "status": "ongoing" } }
+```
+
+إدارة المخزون (Inventory)
+- شاشة الصلاحيات: `StockManagment` (عرض)
+- جميع المسارات تتطلب `authMiddleware` وتمر عبر `checkPermission('StockManagment', 'view')`
+
+1) تحضيرات اليوم
+- الطريقة: `GET`
+- المسار: `/inventory/today?page=1&limit=10`
+- السلوك:
+  - يجمع عدد الوجبات المطلوب تحضيرها اليوم بناءً على:
+    - الاشتراكات الجارية `status=ongoing`
+    - نوع الاشتراك `type=pickup|delivery`
+    - اليوم الحالي وفق جدول أيام العمل `workdays`
+    - يأخذ التخصيصات بعين الاعتبار، إذا استبدل المشترك وجبة معينة تُحسب الوجبة الجديدة بدل القديمة
+  - التجميع يكون حسب الباقة، وداخلها الوجبات المطلوبة لهذا اليوم، بالإضافة إلى الإضافات (إن وجدت) مجمّعة حسب الصنف
+- هيكل الاستجابة:
+```json
+{
+  "success": true,
+  "message": "تم جلب تحضيرات اليوم بنجاح",
+  "data": {
+    "rows": [
+      {
+        "workday": { "id": 6, "name_en": "Saturday", "name_ar": "السبت", "status": "active" },
+        "plan": { "id": 1, "name": "باقة 150 جرام", "total_meals_count": 60 },
+        "meals": [
+          { "meal": { "id": 2, "name": "تشكن بتر", "image": "http://.../uploads/meals/xxx.jpg" }, "count": 8 },
+          { "meal": { "id": 1, "name": "ستيك",      "image": "http://.../uploads/meals/yyy.jpg" }, "count": 6 }
+        ],
+        "addons": [
+          { "category": { "id": 3, "name": "سناك", "type": "snack" }, "count": 4 },
+          { "category": { "id": 5, "name": "سلطة", "type": "salads" }, "count": 2 }
+        ]
+      }
+    ],
+    "count": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
+}
+```
+
+2) تحضيرات الغد
+- الطريقة: `GET`
+- المسار: `/inventory/tomorrow?page=1&limit=10`
+- السلوك:
+  - نفس منطق تحضيرات اليوم، لكن يعتمد يوم العمل للغد (اليوم التالي)
+  - الاشتراكات الجارية `status=ongoing` ونوعي `pickup|delivery`
+  - التخصيصات تؤخذ بعين الاعتبار
+  - التجميع حسب الباقة، وداخلها الوجبات المطلوبة للغد، بالإضافة إلى الإضافات (إن وجدت) مجمّعة حسب الصنف
+- هيكل الاستجابة:
+```json
+{
+  "success": true,
+  "message": "تم جلب تحضيرات الغد بنجاح",
+  "data": {
+    "rows": [
+      {
+        "workday": { "id": 7, "name_en": "Sunday", "name_ar": "الأحد" },
+        "plan": { "id": 1, "name": "باقة 150 جرام", "total_meals_count": 60 },
+        "meals": [
+          { "meal": { "id": 4, "name": "صدر دجاج", "image": "http://..." }, "count": 10 }
+        ],
+        "addons": [
+          { "category": { "id": 3, "name": "سناك", "type": "snack" }, "count": 4 }
+        ]
+      }
+    ],
+    "count": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
+}
+```
